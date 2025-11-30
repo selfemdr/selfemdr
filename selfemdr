@@ -1,0 +1,835 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>SelfEMDR — Visual EMDR Aid</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-0: #06070b;
+    --panel: #0f1720;
+    --muted: #9aa6b2;
+    --accent: #7de3ff;
+    --accent-2: #9b7dff;
+    --glass: rgba(255,255,255,0.03);
+    --radius: 12px;
+    color-scheme: dark;
+    font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;background:linear-gradient(180deg,#020406 0%, #071018 60%); color:#e6f3f8}
+  .app { max-width:1100px; margin:28px auto; padding:20px; display:grid; gap:18px; }
+  header { display:flex; gap:12px; align-items:center; justify-content:space-between; }
+  .brand { display:flex; gap:12px; align-items:center; }
+  .logo { width:48px; height:48px; border-radius:10px; display:flex; align-items:center; justify-content:center; background:linear-gradient(135deg,var(--accent),var(--accent-2)); box-shadow:0 8px 30px rgba(125,227,255,0.06); font-weight:700; color:#021426; }
+  h1{font-size:18px;margin:0}
+  p.lead {margin:0;color:var(--muted);font-size:13px}
+  .grid { display:grid; grid-template-columns: 1fr 360px; gap:18px; align-items:start; }
+  .card { background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); border-radius:var(--radius); padding:18px; box-shadow: 0 8px 30px rgba(2,8,14,0.4); border: 1px solid rgba(255,255,255,0.03); }
+  label.small {display:block;color:var(--muted);font-size:13px;margin-bottom:6px}
+  .range { appearance:none; height:6px; border-radius:999px; background:linear-gradient(90deg,#1b2430,#15202a); outline:none; width:220px; }
+  .color { width:44px; height:36px; border-radius:8px; border:0; padding:0; cursor:pointer; }
+  .controls-left { display:flex; flex-direction:column; gap:12px; }
+  .buttons { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+  button { background:linear-gradient(180deg,var(--accent),var(--accent-2)); color:#021426; border:0; padding:10px 14px; border-radius:10px; font-weight:600; cursor:pointer; box-shadow:0 8px 20px rgba(123,150,255,0.06) }
+  button.secondary { background:transparent; border:1px solid rgba(255,255,255,0.06); color:var(--muted); font-weight:600 }
+  button.ghost { background:transparent; border:1px solid rgba(255,255,255,0.06); color:var(--muted) }
+
+  .side { display:flex; flex-direction:column; gap:12px; }
+  .smallcard { padding:12px; border-radius:10px; background:linear-gradient(180deg,rgba(255,255,255,0.012), rgba(255,255,255,0.008)); border:1px solid rgba(255,255,255,0.03) }
+  .preset-list { display:flex; flex-direction:column; gap:8px; margin-top:8px; }
+  .preset-item { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:8px; border-radius:8px; background:rgba(255,255,255,0.01); border:1px solid rgba(255,255,255,0.02) }
+  .session-list { max-height:240px; overflow:auto; margin-top:8px; display:flex; flex-direction:column; gap:8px; }
+  .img-thumb { width:100%; border-radius:8px; margin-top:12px; border:1px solid rgba(255,255,255,0.03) }
+
+  footer { margin-top:18px; color:var(--muted); font-size:13px; text-align:center }
+
+  .session-screen { position:fixed; inset:0; display:none; background:var(--bg-0); align-items:center; justify-content:center; z-index:9999; }
+  .session-screen.full { display:flex; }
+  #sessionCanvas { width:100vw; height:100vh; display:block; background:linear-gradient(180deg,#05070a, #071018) }
+
+  .session-ui { position:fixed; top:18px; right:18px; display:flex; gap:8px; z-index:10001; align-items:center; }
+  .session-ui button { padding:10px 12px; border-radius:10px; font-weight:600 }
+
+  .muted { color:var(--muted); font-size:13px; }
+
+  /* small helper grid for description */
+  .desc {
+    background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.005));
+    padding:12px;
+    border-radius:10px;
+    border:1px solid rgba(255,255,255,0.02);
+    color:var(--muted);
+    font-size:14px;
+    line-height:1.45;
+  }
+
+  @media (max-width:980px){ .grid { grid-template-columns:1fr; } .side { order:2 } .logo { width:40px;height:40px } }
+</style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div class="brand">
+        <div class="logo" aria-hidden="true">
+          <svg width="34" height="34" viewBox="0 0 34 34" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <defs>
+              <linearGradient id="g" x1="0" x2="1">
+                <stop offset="0" stop-color="#7de3ff"/>
+                <stop offset="1" stop-color="#9b7dff"/>
+              </linearGradient>
+            </defs>
+            <rect width="34" height="34" rx="8" fill="url(#g)"/>
+            <text x="8.2" y="22" font-family="Inter, Arial" font-weight="700" font-size="14" fill="#021426">SE</text>
+          </svg>
+        </div>
+        <div>
+          <h1>SelfEMDR</h1>
+          <p class="lead">Customizable, safe visual bilateral stimulation — Self-Administered</p>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:10px;align-items:center">
+        <button id="openSessionBtn" class="secondary">Open Full Screen</button>
+        <button id="exportCSV" class="ghost">Export Sessions (CSV)</button>
+      </div>
+    </header>
+
+    <div class="grid">
+      <!-- LEFT: Controls card -->
+      <section class="card" aria-label="Controls">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <div>
+            <div style="font-weight:700">Session Controls</div>
+            <div style="color:var(--muted);font-size:13px">Customize your session & start. <strong>EMDR = Eye Movement Desensitization and Reprocessing</strong>.</div>
+          </div>
+          <div style="color:var(--muted);font-size:13px">Not therapy — see disclaimer below.</div>
+        </div>
+
+        <div class="controls-left" style="margin-top:12px">
+          <div>
+            <label class="small">Dot Size (px)</label>
+            <input id="dotSize" class="range" type="range" min="6" max="160" value="24" />
+          </div>
+
+          <div>
+            <label class="small">Speed (px / second)</label>
+            <input id="speed" class="range" type="range" min="20" max="1600" value="320" />
+            <div class="muted" style="margin-top:6px">Use ~200–600 for gentle motion; higher is faster.</div>
+          </div>
+
+          <div style="display:flex;gap:12px;align-items:center;">
+            <div>
+              <label class="small">Dot Color</label>
+              <input id="dotColor" class="color" type="color" value="#7de3ff" />
+            </div>
+            <div>
+              <label class="small">Background</label>
+              <input id="bgColor" class="color" type="color" value="#071018" />
+            </div>
+            <div>
+              <label class="small">Orientation</label><br>
+              <select id="orientation" style="padding:8px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.04);color:var(--muted)">
+                <option value="horizontal">Horizontal</option>
+                <option value="vertical">Vertical</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="small">Direction</label><br>
+              <select id="direction" style="padding:8px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.04);color:var(--muted)">
+                <option value="1">Left ↔ Right</option>
+                <option value="-1">Right ↔ Left</option>
+                <option value="topbot">Top ↔ Bottom</option>
+                <option value="bottop">Bottom ↔ Top</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="buttons">
+            <button id="startBtn">Start Session</button>
+            <button id="pauseBtn" class="secondary">Pause</button>
+            <button id="savePreset" class="ghost">Save Preset</button>
+            <button id="hcBtn" class="ghost">High Contrast</button>
+            <button id="rmBtn" class="ghost">Reduced Motion</button>
+            <button id="resetBtn" class="ghost">Reset</button>
+          </div>
+
+          <div style="margin-top:12px;color:var(--muted);font-size:13px;background:var(--glass);padding:12px;border-radius:10px;border:1px solid rgba(255,255,255,0.02)">
+            <strong>Safety:</strong> This tool is NOT a replacement for EMDR therapy or professional mental-health care. If you have trauma-related symptoms, dissociation, or are in crisis, stop and consult a licensed therapist or emergency services.
+          </div>
+        </div>
+
+        <!-- optional thumbnail -->
+        <img id="diagramThumb" class="img-thumb" src="/mnt/data/A_schematic_geometric_diagram_in_black_and_white_i.png" alt="Optional diagram" onerror="this.style.display='none'">
+      </section>
+
+      <!-- RIGHT: Presets & Analytics -->
+      <aside class="side">
+        <div class="smallcard">
+          <div style="font-weight:700">How Self-Administered EMDR Works</div>
+          <div class="desc" style="margin-top:8px;">
+            <p><strong>Self-administered EMDR</strong> uses bilateral stimulation (BLS)—such as guided eye movements, taps, or sounds—while you focus on a distressing memory, negative thoughts, or physical sensations.</p>
+            <p>The goal is to help your brain reprocess the memory, making it less emotionally intense over time.</p>
+            <p>A self-guided session typically follows a simplified structure similar to traditional EMDR: preparation, focusing on the memory, using BLS, noticing changes in thoughts and feelings, and closing the session safely.</p>
+            <p>With the right tools and guidance, you can safely engage in self-EMDR exercises at your own pace, tracking your progress and emotional responses.</p>
+          </div>
+        </div>
+
+        <div class="smallcard">
+          <div style="font-weight:700">Saved Presets</div>
+          <div id="presetList" class="preset-list"></div>
+        </div>
+
+        <div class="smallcard">
+          <div style="font-weight:700">About</div>
+          <div class="muted" style="margin-top:6px">visual bilateral stimulation only. No data leaves this device unless you export it.</div>
+        </div>
+
+        <div class="smallcard">
+          <div style="font-weight:700">Session Analytics (local only)</div>
+          <div class="muted" style="margin-top:6px">Sessions logged locally. Export CSV to share with a therapist.</div>
+          <div class="session-list" id="sessionList"></div>
+          <div style="margin-top:8px; display:flex; gap:8px;">
+            <button id="clearSessions" class="secondary">Clear Sessions</button>
+            <button id="downloadCSV" class="ghost">Download CSV</button>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <footer>
+      Built for demo & learning. Do not use as a substitute for licensed EMDR therapy.
+    </footer>
+  </div>
+
+  <!-- Full-screen session overlay -->
+  <div id="sessionScreen" class="session-screen" role="dialog" aria-modal="true" aria-hidden="true">
+    <canvas id="sessionCanvas" aria-label="EMDR session canvas"></canvas>
+
+    <div class="session-ui" role="region" aria-label="Session controls">
+      <button id="exitFull" class="secondary">Exit</button>
+      <button id="markSplit" class="ghost">Mark Split</button>
+      <div style="background:rgba(255,255,255,0.02);padding:8px;border-radius:8px;font-size:13px;color:var(--muted)">Time: <span id="sessionTimer">00:00</span></div>
+    </div>
+  </div>
+
+<script>
+/* -------------------------
+   Utilities & DOM helpers
+   ------------------------- */
+const $ = id => document.getElementById(id);
+const nowISO = () => new Date().toISOString();
+
+/* -------------------------
+   Elements
+   ------------------------- */
+const dotSizeEl = $('dotSize');
+const speedEl = $('speed');
+const dotColorEl = $('dotColor');
+const bgColorEl = $('bgColor');
+const orientationEl = $('orientation');
+const directionEl = $('direction');
+
+const startBtn = $('startBtn');
+const pauseBtn = $('pauseBtn');
+const savePresetBtn = $('savePreset');
+const hcBtn = $('hcBtn');
+const rmBtn = $('rmBtn');
+const resetBtn = $('resetBtn');
+
+const presetList = $('presetList');
+const sessionList = $('sessionList');
+const clearSessionsBtn = $('clearSessions');
+const downloadCSVbtn = $('downloadCSV');
+const exportCSVbtn = $('exportCSV');
+const openSessionBtn = $('openSessionBtn');
+const sessionScreen = $('sessionScreen');
+const sessionCanvas = $('sessionCanvas');
+const exitFull = $('exitFull');
+const markSplit = $('markSplit');
+const sessionTimer = $('sessionTimer');
+const diagramThumb = $('diagramThumb');
+
+/* -------------------------
+   Defaults & state
+   ------------------------- */
+const DEFAULTS = {
+  dotRadius: 24,
+  speed: 320,
+  dotColor: '#7de3ff',
+  bgColor: '#071018',
+  orientation: 'horizontal',
+  directionMode: '1', // initial mapping to direction select
+  reducedMotion: false,
+  highContrast: false
+};
+
+let state = {
+  dotRadius: DEFAULTS.dotRadius,
+  speed: DEFAULTS.speed,
+  dotColor: DEFAULTS.dotColor,
+  bgColor: DEFAULTS.bgColor,
+  orientation: DEFAULTS.orientation,
+  direction: 1,
+  playing: false,
+  reducedMotion: DEFAULTS.reducedMotion,
+  highContrast: DEFAULTS.highContrast,
+  currentSession: null,
+  sessions: JSON.parse(localStorage.getItem('selfemdr_sessions') || '[]'),
+  presets: JSON.parse(localStorage.getItem('selfemdr_presets') || '[]')
+};
+
+/* -------------------------
+   Canvas setup & variables
+   ------------------------- */
+const ctx = sessionCanvas.getContext('2d');
+
+function resizeCanvas() {
+  const dpr = window.devicePixelRatio || 1;
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  sessionCanvas.style.width = w + 'px';
+  sessionCanvas.style.height = h + 'px';
+  sessionCanvas.width = Math.round(w * dpr);
+  sessionCanvas.height = Math.round(h * dpr);
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+
+/* posX/posY start as null to avoid falsy 0 confusion */
+let lastTS = null;
+let posX = null;
+let posY = null;
+let velocity = 0;
+let rafId = null; // <-- single RAF controller
+
+function initPosition() {
+  posX = (sessionCanvas.clientWidth || window.innerWidth) / 2;
+  posY = (sessionCanvas.clientHeight || window.innerHeight) / 2;
+}
+
+/* -------------------------
+   Helpers
+   ------------------------- */
+function hexToRgba(hex, a=1) {
+  const c = hex.replace('#','');
+  const n = parseInt(c,16);
+  const r = (n >> 16) & 255;
+  const g = (n >> 8) & 255;
+  const b = n & 255;
+  return `rgba(${r},${g},${b},${a})`;
+}
+function formatSec(s) {
+  const mm = String(Math.floor(s/60)).padStart(2,'0');
+  const ss = String(s%60).padStart(2,'0');
+  return `${mm}:${ss}`;
+}
+
+/* -------------------------
+   Direction mapping
+   ------------------------- */
+function applyDirectionSelection() {
+  const val = String(directionEl.value);
+  if (val === '1') {
+    state.orientation = 'horizontal';
+    state.direction = 1;
+  } else if (val === '-1') {
+    state.orientation = 'horizontal';
+    state.direction = -1;
+  } else if (val === 'topbot') {
+    state.orientation = 'vertical';
+    state.direction = 1;
+  } else if (val === 'bottop') {
+    state.orientation = 'vertical';
+    state.direction = -1;
+  } else {
+    // fallback
+    state.orientation = orientationEl.value || 'horizontal';
+    state.direction = 1;
+  }
+}
+
+/* -------------------------
+   Velocity calculation
+   ------------------------- */
+function updateVelocity() {
+  velocity = state.speed * state.direction;
+}
+
+/* -------------------------
+   Animation loop (single RAF)
+   ------------------------- */
+function startLoopIfNeeded() {
+  if (rafId === null) {
+    rafId = requestAnimationFrame(drawFrame);
+  }
+}
+function stopLoopIfRunning() {
+  if (rafId !== null) {
+    cancelAnimationFrame(rafId);
+    rafId = null;
+    lastTS = null;
+  }
+}
+
+function drawFrame(ts) {
+  // schedule next at end; use rafId to track
+  if (!lastTS) lastTS = ts;
+  const dt = Math.min(0.1, (ts - lastTS) / 1000);
+  lastTS = ts;
+
+  resizeCanvas();
+  const w = sessionCanvas.clientWidth;
+  const h = sessionCanvas.clientHeight;
+
+  if (posX === null || posY === null) initPosition();
+
+  // if orientation changed, ensure dot is centered on axis for smooth transition
+  // (we avoid teleports by clamping)
+  const margin = Math.max(12, state.dotRadius + 6);
+  if (state.orientation === 'horizontal') {
+    // ensure posY centered
+    posY = h / 2;
+    posX = Math.min(Math.max(posX, margin), w - margin);
+  } else {
+    posX = w / 2;
+    posY = Math.min(Math.max(posY, margin), h - margin);
+  }
+
+  // movement when playing and not reduced motion
+  if (state.playing && !state.reducedMotion) {
+    if (state.orientation === 'horizontal') {
+      posX += velocity * dt;
+    } else {
+      posY += velocity * dt;
+    }
+  }
+
+  // Bounds & reflection: snap to boundary and invert direction (simple + stable)
+  if (state.orientation === 'horizontal') {
+    if (posX <= margin) {
+      posX = margin;
+      state.direction = 1;
+      updateVelocity();
+      directionEl.value = '1';
+    } else if (posX >= w - margin) {
+      posX = w - margin;
+      state.direction = -1;
+      updateVelocity();
+      directionEl.value = '-1';
+    }
+  } else {
+    if (posY <= margin) {
+      posY = margin;
+      state.direction = 1;
+      updateVelocity();
+      directionEl.value = 'topbot';
+    } else if (posY >= h - margin) {
+      posY = h - margin;
+      state.direction = -1;
+      updateVelocity();
+      directionEl.value = 'bottop';
+    }
+  }
+
+  // draw background
+  ctx.clearRect(0,0, w, h);
+  ctx.fillStyle = state.bgColor;
+  ctx.fillRect(0,0,w,h);
+
+  // center guide
+  ctx.strokeStyle = state.highContrast ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.03)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  if (state.orientation === 'horizontal') {
+    ctx.moveTo(0, h/2 + 0.5); ctx.lineTo(w, h/2 + 0.5);
+  } else {
+    ctx.moveTo(w/2 + 0.5, 0); ctx.lineTo(w/2 + 0.5, h);
+  }
+  ctx.stroke();
+
+  // draw dot (with glow)
+  ctx.beginPath();
+  ctx.shadowColor = hexToRgba(state.dotColor, 0.45);
+  ctx.shadowBlur = Math.min(80, state.dotRadius * 3);
+  ctx.fillStyle = state.dotColor;
+  const drawX = state.orientation === 'horizontal' ? posX : w / 2;
+  const drawY = state.orientation === 'horizontal' ? h / 2 : posY;
+  ctx.arc(drawX, drawY, state.dotRadius, 0, Math.PI*2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  // timer
+  if (state.currentSession) {
+    sessionTimer.textContent = formatSec(Math.floor((Date.now() - state.currentSession.startTime) / 1000));
+  }
+
+  // continue loop if needed
+  if (state.playing || !state.reducedMotion) {
+    rafId = requestAnimationFrame(drawFrame);
+  } else {
+    // stop continuous loop if paused and reducedMotion is true
+    rafId = null;
+    lastTS = null;
+  }
+}
+
+/* -------------------------
+   UI -> state binding
+   ------------------------- */
+function applyUItoState() {
+  state.dotRadius = Number(dotSizeEl.value);
+  state.speed = Number(speedEl.value);
+  state.dotColor = dotColorEl.value;
+  state.bgColor = bgColorEl.value;
+  // orientation select & direction select can overwrite each other; apply direction mapping
+  applyDirectionSelection();
+  state.reducedMotion = rmBtn.classList.contains('active');
+  state.highContrast = hcBtn.classList.contains('active');
+  updateVelocity();
+
+  // if the user changed orientation, re-center the related axis to avoid jumps
+  const w = sessionCanvas.clientWidth || window.innerWidth;
+  const h = sessionCanvas.clientHeight || window.innerHeight;
+  if (state.orientation === 'horizontal') {
+    posY = h / 2;
+    posX = Math.min(Math.max(posX || w/2, Math.max(12, state.dotRadius + 6)), w - Math.max(12, state.dotRadius + 6));
+  } else {
+    posX = w / 2;
+    posY = Math.min(Math.max(posY || h/2, Math.max(12, state.dotRadius + 6)), h - Math.max(12, state.dotRadius + 6));
+  }
+
+  if (diagramThumb) diagramThumb.style.background = state.bgColor;
+
+  // ensure the animation loop is running to reflect changes
+  startLoopIfNeeded();
+}
+
+/* -------------------------
+   Reset
+   ------------------------- */
+function resetToDefaults() {
+  dotSizeEl.value = DEFAULTS.dotRadius;
+  speedEl.value = DEFAULTS.speed;
+  dotColorEl.value = DEFAULTS.dotColor;
+  bgColorEl.value = DEFAULTS.bgColor;
+  orientationEl.value = DEFAULTS.orientation;
+  directionEl.value = DEFAULTS.directionMode;
+  state.dotRadius = DEFAULTS.dotRadius;
+  state.speed = DEFAULTS.speed;
+  state.dotColor = DEFAULTS.dotColor;
+  state.bgColor = DEFAULTS.bgColor;
+  state.orientation = DEFAULTS.orientation;
+  applyDirectionSelection();
+  updateVelocity();
+  if (rmBtn.classList.contains('active')) rmBtn.classList.remove('active');
+  if (hcBtn.classList.contains('active')) hcBtn.classList.remove('active');
+  state.reducedMotion = DEFAULTS.reducedMotion;
+  state.highContrast = DEFAULTS.highContrast;
+
+  // recenter
+  initPosition();
+  applyUItoState();
+}
+
+/* -------------------------
+   Event wiring
+   ------------------------- */
+dotSizeEl.addEventListener('input', () => { state.dotRadius = Number(dotSizeEl.value); startLoopIfNeeded(); });
+speedEl.addEventListener('input', () => { state.speed = Number(speedEl.value); updateVelocity(); startLoopIfNeeded(); });
+dotColorEl.addEventListener('input', () => { state.dotColor = dotColorEl.value; startLoopIfNeeded(); });
+bgColorEl.addEventListener('input', () => { state.bgColor = bgColorEl.value; startLoopIfNeeded(); });
+orientationEl.addEventListener('change', () => { state.orientation = orientationEl.value; applyDirectionSelection(); updateVelocity(); initPosition(); startLoopIfNeeded(); });
+directionEl.addEventListener('change', () => { applyDirectionSelection(); updateVelocity(); startLoopIfNeeded(); });
+
+hcBtn.addEventListener('click', () => {
+  hcBtn.classList.toggle('active');
+  state.highContrast = hcBtn.classList.contains('active');
+  if (state.highContrast) {
+    document.documentElement.style.setProperty('--accent', '#ffff66');
+    document.documentElement.style.setProperty('--accent-2', '#ffd86b');
+  } else {
+    document.documentElement.style.setProperty('--accent', '#7de3ff');
+    document.documentElement.style.setProperty('--accent-2', '#9b7dff');
+  }
+  startLoopIfNeeded();
+});
+
+rmBtn.addEventListener('click', () => {
+  rmBtn.classList.toggle('active');
+  state.reducedMotion = rmBtn.classList.contains('active');
+  if (state.reducedMotion) {
+    // if reduced motion is enabled, we keep one frame but stop continuous loop
+    stopLoopIfRunning();
+    lastTS = null;
+    // draw one frame to show paused view
+    rafId = requestAnimationFrame(drawFrame);
+  } else {
+    startLoopIfNeeded();
+  }
+});
+
+resetBtn.addEventListener('click', () => {
+  resetToDefaults();
+});
+
+/* -------------------------
+   Session controls
+   ------------------------- */
+startBtn.addEventListener('click', () => {
+  applyUItoState();
+  if (!state.playing) {
+    state.playing = true;
+    if (!state.currentSession) {
+      state.currentSession = {
+        id: 's_' + Date.now(),
+        startTime: Date.now(),
+        startISO: nowISO(),
+        settings: {
+          dotRadius: state.dotRadius,
+          speed: state.speed,
+          dotColor: state.dotColor,
+          bgColor: state.bgColor,
+          orientation: state.orientation,
+          direction: state.direction,
+          reducedMotion: state.reducedMotion,
+          highContrast: state.highContrast
+        },
+        marks: []
+      };
+    }
+  }
+  // open full screen and start loop
+  openFullScreen();
+  startLoopIfNeeded();
+});
+
+pauseBtn.addEventListener('click', () => {
+  if (state.playing) {
+    state.playing = false;
+    // stop continuous loop
+    stopLoopIfRunning();
+    if (state.currentSession) {
+      state.currentSession.endTime = Date.now();
+      state.currentSession.endISO = nowISO();
+      state.currentSession.durationSeconds = Math.round((state.currentSession.endTime - state.currentSession.startTime)/1000);
+      state.sessions.push(state.currentSession);
+      localStorage.setItem('selfemdr_sessions', JSON.stringify(state.sessions));
+      state.currentSession = null;
+      renderSessions();
+    }
+  } else {
+    // if paused and user clicks pause (maybe they intended resume), toggle resume
+    state.playing = true;
+    startLoopIfNeeded();
+  }
+});
+
+markSplit.addEventListener('click', () => {
+  if (state.currentSession) {
+    state.currentSession.marks.push({ time: Date.now(), iso: nowISO() });
+  }
+});
+
+/* Fullscreen open/close */
+function openFullScreen() {
+  sessionScreen.style.display = 'flex';
+  sessionScreen.setAttribute('aria-hidden','false');
+  resizeCanvas();
+  initPosition();
+  updateVelocity();
+  startLoopIfNeeded();
+}
+openSessionBtn.addEventListener('click', () => { applyUItoState(); openFullScreen(); });
+
+exitFull.addEventListener('click', () => {
+  sessionScreen.style.display = 'none';
+  sessionScreen.setAttribute('aria-hidden','true');
+  // keep session running in background? safer to stop loop if not playing
+  if (!state.playing) stopLoopIfRunning();
+});
+
+/* -------------------------
+   Presets: save / load / delete
+   ------------------------- */
+savePresetBtn.addEventListener('click', () => {
+  applyUItoState();
+  const p = {
+    name: `Preset ${state.presets.length + 1}`,
+    dotRadius: state.dotRadius,
+    speed: state.speed,
+    dotColor: state.dotColor,
+    bgColor: state.bgColor,
+    orientation: state.orientation,
+    direction: state.direction,
+    timestamp: Date.now()
+  };
+  state.presets.push(p);
+  localStorage.setItem('selfemdr_presets', JSON.stringify(state.presets));
+  renderPresets();
+});
+
+function renderPresets() {
+  if (!presetList) return;
+  presetList.innerHTML = '';
+  state.presets = JSON.parse(localStorage.getItem('selfemdr_presets') || '[]');
+  state.presets.forEach((p,i) => {
+    const div = document.createElement('div');
+    div.className = 'preset-item';
+    div.innerHTML = `
+      <div style="display:flex;gap:10px;align-items:center">
+        <div style="width:44px;height:32px;border-radius:8px;background:${p.bgColor};border:1px solid rgba(255,255,255,0.02);display:flex;align-items:center;justify-content:center">
+          <div style="width:14px;height:14px;border-radius:999px;background:${p.dotColor}"></div>
+        </div>
+        <div style="font-size:13px">${p.name}</div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="loadPreset" data-i="${i}">Load</button>
+        <button class="delPreset" data-i="${i}">Delete</button>
+      </div>
+    `;
+    presetList.appendChild(div);
+  });
+
+  document.querySelectorAll('.loadPreset').forEach(btn => {
+    btn.addEventListener('click', e => {
+      const idx = Number(e.currentTarget.dataset.i);
+      const p = state.presets[idx];
+      if (!p) return;
+      dotSizeEl.value = p.dotRadius;
+      speedEl.value = p.speed;
+      dotColorEl.value = p.dotColor;
+      bgColorEl.value = p.bgColor;
+      orientationEl.value = p.orientation || 'horizontal';
+      if (p.orientation === 'vertical') {
+        directionEl.value = p.direction === 1 ? 'topbot' : 'bottop';
+      } else {
+        directionEl.value = p.direction === -1 ? '-1' : '1';
+      }
+      applyUItoState();
+    });
+  });
+
+  document.querySelectorAll('.delPreset').forEach(btn => {
+    btn.addEventListener('click', e => {
+      const idx = Number(e.currentTarget.dataset.i);
+      state.presets.splice(idx,1);
+      localStorage.setItem('selfemdr_presets', JSON.stringify(state.presets));
+      renderPresets();
+    });
+  });
+}
+
+/* -------------------------
+   Sessions list & CSV
+   ------------------------- */
+function renderSessions() {
+  if (!sessionList) return;
+  sessionList.innerHTML = '';
+  state.sessions = JSON.parse(localStorage.getItem('selfemdr_sessions') || '[]');
+  state.sessions.slice().reverse().forEach(s => {
+    const el = document.createElement('div');
+    el.className = 'preset-item';
+    el.innerHTML = `
+      <div style="display:flex;flex-direction:column">
+        <div style="font-weight:700">${new Date(s.startTime).toLocaleString()}</div>
+        <div style="color:var(--muted);font-size:13px">Duration: ${s.durationSeconds}s • Marks: ${s.marks?.length || 0}</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="viewS" data-id="${s.id}">View</button>
+      </div>
+    `;
+    sessionList.appendChild(el);
+  });
+}
+
+downloadCSVbtn.addEventListener('click', downloadSessionsCSV);
+exportCSVbtn.addEventListener('click', downloadSessionsCSV);
+
+clearSessionsBtn.addEventListener('click', () => {
+  if (!confirm('Clear all stored sessions? This cannot be undone.')) return;
+  state.sessions = [];
+  localStorage.setItem('selfemdr_sessions', JSON.stringify([]));
+  renderSessions();
+});
+
+function downloadSessionsCSV() {
+  const sessions = JSON.parse(localStorage.getItem('selfemdr_sessions') || '[]');
+  if (!sessions.length) { alert('No sessions saved.'); return; }
+  const header = ['id','startISO','endISO','durationSeconds','dotRadius','speed','dotColor','bgColor','orientation','direction','reducedMotion','highContrast','marksCount','marksISO'];
+  const rows = [header.join(',')];
+  sessions.forEach(s => {
+    const settings = s.settings || {};
+    const marksISO = (s.marks || []).map(m=>m.iso).join('|');
+    const cells = [
+      s.id || '',
+      s.startISO || '',
+      s.endISO || '',
+      s.durationSeconds || '',
+      settings.dotRadius||'',
+      settings.speed||'',
+      settings.dotColor||'',
+      settings.bgColor||'',
+      settings.orientation||'',
+      settings.direction||'',
+      settings.reducedMotion||'',
+      settings.highContrast||'',
+      (s.marks||[]).length,
+      `"${marksISO}"`
+    ];
+    rows.push(cells.join(','));
+  });
+  const blob = new Blob([rows.join('\n')], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'selfemdr_sessions.csv';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+/* -------------------------
+   Accessibility & lifecycle
+   ------------------------- */
+window.addEventListener('keydown', e => {
+  if (e.code === 'Space') {
+    e.preventDefault();
+    if (state.playing) pauseBtn.click();
+    else startBtn.click();
+  }
+  if (e.key === 'ArrowUp') { dotSizeEl.value = Math.min(Number(dotSizeEl.value)+2, Number(dotSizeEl.max)); applyUItoState(); }
+  if (e.key === 'ArrowDown') { dotSizeEl.value = Math.max(Number(dotSizeEl.value)-2, Number(dotSizeEl.min)); applyUItoState(); }
+  if (e.key === 'ArrowRight') { speedEl.value = Math.min(Number(speedEl.value)+40, Number(speedEl.max)); applyUItoState(); }
+  if (e.key === 'ArrowLeft') { speedEl.value = Math.max(Number(speedEl.value)-40, Number(speedEl.min)); applyUItoState(); }
+});
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && state.playing) pauseBtn.click();
+});
+
+window.addEventListener('resize', () => {
+  // keep positions valid on resize
+  resizeCanvas();
+  initPosition();
+  lastTS = null;
+  startLoopIfNeeded();
+});
+
+/* -------------------------
+   Init
+   ------------------------- */
+renderPresets();
+renderSessions();
+resetToDefaults();
+resizeCanvas();
+initPosition();
+updateVelocity();
+// start a single frame so UI isn't blank (loop will start when user starts or changes settings)
+rafId = requestAnimationFrame(drawFrame);
+
+</script>
+</body>
+</html>
